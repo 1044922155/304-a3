@@ -1,0 +1,94 @@
+---
+title: "Analysis report of prediction of U.S. Presidential Election"
+author: "Shengfu zhu,Yining Chen,Zhixin Zhu"
+date: "Nov 2 2020"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+# Loading in the cleaned survey Data
+survey_data <- read_csv("survey_data.csv")
+
+# Loading in the cleaned census Data
+census_data <- read_csv("census_data.csv")
+
+```
+
+# Model
+
+The 2020 U.S. presidential election was held on November 3, 2020. This is the 59th U.S. presidential election. The current President Donald and Vice President Mike Pence was appointed to power without any opponents in the Republican Party. Party nominated for election. Our model is used to predict who will vote for Trump. We select two types of model to estimate the proportion that voters tend to vote for Donald Trump.One method is  logistic regression model, while the other is using a linear regression model to model the proportion of voters who will vote for Donald Trump. This is a multiple linear regression model. We are using two age and citizenship, which are recorded as explanatory variables, to model the probability of voting for Donald Trump. We chose age because People of different ages have different ideas, so we want to explore what choices people of different ages make when facing the US election. The reason for choosing citizens, as outsiders, is that we want to study how American citizens feel about their President. The multiple linear regression model we are using is:
+
+$$ y = \beta_0+\beta_1  x_{age} + \beta_2 x_{citizenship}+ \epsilon$$
+
+Where $y$ represents the proportion of voters who will vote for Donald Trump. Similarly, $\beta_0$ represents the intercept of the model and is the probability of voting for Donald Trump at age 0 which has no pratical meaning . Additionally, $\beta_1$ represents the relationship between age and voting which means that number is the slope of the relationship and it will tell us what age group will vote for Trump. So, for everyone one unit increase in age, we expect a $\beta_1$ increase in the average probability of voting for Donald Trump. In our data,we transfer the foreign_born variable into numerical where 1 means that people were born in the United States and 0 means that people are foreign-born.Therefore, $\beta_2$ represents the difference in the probability of voting for Donald Trump bwteen people who were born in the United States and who were born in other countries.
+
+Also,we create a simple linear regression model that only contains citizenship.We use anova() function and find out whether the more complex model is significantly better at estimating data than a simple model.
+```{r, include=FALSE}
+
+# Creating the Model
+model <- glm(vote_trump ~ age + citizenship, 
+            data=survey_data, family ="binomial")
+model0<-glm(vote_trump~citizenship,data=survey_data,family="binomial")
+
+
+# Model Results (to Report in Results section)
+summary(model)
+summary(model0)
+anova(model0,model)
+
+
+
+```
+
+## Post-Stratification 
+
+In order to estimate the proportion of voters who will vote for Donald Trump I need to perform a post-stratification analysis. Here I create cells based off different ages. Using the model described in the previous sub-section I will estimate the proportion of voters in each age bin. I will then weight each proportion estimate (within each bin) by the respective population size of that bin and sum those values and divide that by the entire population size. The reason for us to choose the post-stratification is that the sample we select in this method is representative for different age section, which is same as in different citizenship section. Since the sample we select in this method more accurately express same age and same citizenship voters opinion, the estimation proportion can avoid more residual, the estimated outcome will close to reality better.
+```{r, include=FALSE}
+
+# Here I will perform the post-stratification calculation
+census_data$estimate <-
+  model %>%
+  predict(newdata = census_data,type="response")
+
+census_data %>%
+  mutate(alp_predict_prop = estimate*n) %>%
+  summarise(alp_predict = sum(alp_predict_prop)/sum(n))
+
+
+```
+
+
+# Results
+In the appropriate logistic model we choose, we select two lists of variable, which are their citizenship and ages. We estimate that the proportion of voters in favor of voting for Donald Trump to be 0.3448. This is based off our post- stratification analysis of the proportion of voters in favor of Donald Trump by this model. It claims that 34.48% voters wants Donald Trump continue to be their President, while more voters will not vote for Trump. In 2016, Trump have much better performance in older votes(aged 45 to 65). However,his original older supporters are turning away within the recent survey, Trump is much polling worse in 2020 than which in 2016. If this shift in older voters is stable, this may change the final outcome in this election.
+
+# Discussion
+By developing a linear regression model, we find a positive relationship between the probability of voting for Donald Trump and age.The p-values are extremely close to zero showing that we have strong evidence against the null hypothesis that $\beta_1$ and $\beta_2$ are zero.Also,there is a news saying that "Younger voters tend to vote more Democratic and older voters tend to vote more Republican".This corresponds to our result that older people tend to be sticking with Donald Trump. 
+
+Also,we get the result that people who were born in the United States are more likely to vote for Donald Trump than those who were born in other countries.The probability is 62.33% higher.Some surveys show that many of the new citizens are liberal-leaning.And lots of Trump's policy are against immigrants which may make him difficult to get votes from new citizens.
+
+Through poststratification ,we get an estimated proportion of 0.3448181 showing that 34.48% of population will vote for Donald Trump in this election
+
+
+
+## Weaknesses
+One of the weakness about our data is that only a few people were born in other countries in our 6479 observations.The number is not large enough to support our assumption. 
+Another weakness is that it may be confounding since we did not use multilevel regression models.
+
+## Next Steps
+We could use multilevel regression models.It helps us to pool of one level's characteristics and estimation.In our data,the number of people who are foreign-born is too small to adequately estimate the probability that they will vote for Donald Trump.By using the multilevel model,we can pool everyone at the individual level and estimate the effects for everyone in the sample.
+
+Also,we could add more variables,such as gender and income.From one of the articles in the Altlantic say that poor people tend to vote for Trump.On the other hand,Trump was a businessman which should gain lots of support from marketeers.We can analysis how income will affect people's probability of voting for Trump in the next steps.
+
+
+# References
+1)https://www.voterstudygroup.org/publication/nationscape-data-set.
+2)https://usa.ipums.org/usa/index.shtml
+3)https://fivethirtyeight.com/features/are-older-voters-turning-away-from-trump/
+4)https://www.theatlantic.com/politics/archive/2016/03/who-are-donald-trumps-supporters-really/471714/
+
